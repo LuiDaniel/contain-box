@@ -264,6 +264,7 @@
   .ctl:disabled{ opacity:.3; cursor:default; }
   .ctl svg{ width:17px; height:17px; }
   #musicBtn.playing{ border-color:var(--rosa); color:var(--rosa); }
+  audio{ display:none; }
 
   /* Pantalla ancha: el texto a la izquierda y el mapa a la derecha. */
   @media (min-aspect-ratio: 1/1){
@@ -361,6 +362,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 5 L16 12 L9 19"/></svg>
     </button>
   </nav>
+
+  <audio id="bgm" loop preload="auto">
+    <source src="Harry Styles - Coming Up Roses  Lyrics  Sub Español.mp3" type="audio/mpeg">
+  </audio>
 </div>
 
 <script>
@@ -414,6 +419,7 @@
   var musicBtn = document.getElementById('musicBtn');
   var startBtn = document.getElementById('startBtn');
   var restartBtn = document.getElementById('restartBtn');
+  var bgm = document.getElementById('bgm');
   var mundo = document.getElementById('mundo');
   var hojaGrande = document.getElementById('hojaGrande');
   var alba = document.getElementById('alba');
@@ -612,100 +618,12 @@
   }
   function prev(){ goTo(current-1); }
 
-  // ---------- la canción de la ventana: un arpa en La menor, a tres tiempos ----------
-  var negra = .86, compas = negra*3;
-  var melodia = [
-    [[69,0],[72,1],[76,2]], [[74,0],[72,2]], [[71,0],[69,1],[67,2]], [[69,0]],
-    [[69,0],[72,1],[76,2]], [[79,0],[78,2]], [[76,0],[74,1],[71,2]], [[76,0]],
-    [[81,0],[79,2]], [[76,0],[74,2]], [[72,0],[74,1],[76,2]], [[71,0]],
-    [[69,0],[72,1],[76,2]], [[74,0],[72,2]], [[71,0],[67,1],[71,2]], [[69,0]]
-  ];
-  var bajos = [
-    [45,52,57],[41,48,53],[43,50,55],[45,52,57],
-    [45,52,57],[43,50,55],[40,47,52],[40,47,52],
-    [41,48,53],[48,55,60],[45,52,57],[40,47,52],
-    [45,52,57],[41,48,53],[43,50,55],[45,52,57]
-  ];
-  var audio, volumen, filtro, reloj = null, proximo = 0, n = 0;
-
-  function hz(m){ return 440*Math.pow(2,(m-69)/12); }
-
-  function prepararAudio(){
-    var AC = window.AudioContext || window.webkitAudioContext;
-    audio = new AC();
-    volumen = audio.createGain();
-    volumen.gain.value = 0;
-    volumen.connect(audio.destination);
-    filtro = audio.createBiquadFilter();
-    filtro.type = 'lowpass';
-    filtro.frequency.value = 2400;
-    var seco = audio.createGain();
-    seco.gain.value = .75;
-    filtro.connect(seco);
-    seco.connect(volumen);
-    var largo = Math.floor(audio.sampleRate*3);
-    var eco = audio.createBuffer(2, largo, audio.sampleRate);
-    for (var c=0;c<2;c++){
-      var d = eco.getChannelData(c);
-      for (var i=0;i<largo;i++) d[i] = (Math.random()*2-1)*Math.pow(1-i/largo,3);
-    }
-    var sala = audio.createConvolver();
-    sala.buffer = eco;
-    var mojado = audio.createGain();
-    mojado.gain.value = .45;
-    filtro.connect(sala);
-    sala.connect(mojado);
-    mojado.connect(volumen);
-  }
-
-  function nota(m, t, dur, vol){
-    var o = audio.createOscillator(), a = audio.createOscillator();
-    var g = audio.createGain(), ga = audio.createGain();
-    o.type = 'triangle'; o.frequency.value = hz(m);
-    a.type = 'sine'; a.frequency.value = hz(m)*2;
-    ga.gain.value = .22;
-    g.gain.setValueAtTime(.0001, t);
-    g.gain.linearRampToValueAtTime(vol, t+.012);
-    g.gain.exponentialRampToValueAtTime(.0006, t+dur);
-    o.connect(g); a.connect(ga); ga.connect(g); g.connect(filtro);
-    o.start(t); a.start(t);
-    o.stop(t+dur+.05); a.stop(t+dur+.05);
-  }
-
-  function tocarCompas(i, t){
-    melodia[i].forEach(function(p){ nota(p[0], t+p[1]*negra, 2.8, .3); });
-    bajos[i].forEach(function(m,k){ nota(m, t+k*negra, 2.2, .13); });
-  }
-
-  function avanzar(){
-    while (proximo < audio.currentTime+1.6){
-      tocarCompas(n, proximo);
-      proximo += compas;
-      n = (n+1) % melodia.length;
-    }
-  }
-
   function tryPlayMusic(){
     try {
-      if (reloj) return;
-      if (!audio) prepararAudio();
-      audio.resume();
-      volumen.gain.cancelScheduledValues(audio.currentTime);
-      volumen.gain.setTargetAtTime(.55, audio.currentTime, .3);
-      proximo = audio.currentTime+.15;
-      n = 0;
-      avanzar();
-      reloj = setInterval(avanzar, 400);
+      var p = bgm.play();
+      if (p && p.catch) p.catch(function(){});
       musicBtn.classList.add('playing');
     } catch(e){ /* la música es opcional: nunca debe bloquear la carta */ }
-  }
-
-  function stopMusic(){
-    clearInterval(reloj);
-    reloj = null;
-    volumen.gain.cancelScheduledValues(audio.currentTime);
-    volumen.gain.setTargetAtTime(0, audio.currentTime, .25);
-    musicBtn.classList.remove('playing');
   }
 
   startBtn.addEventListener('click', function(){
@@ -719,7 +637,7 @@
     goTo(0);
   });
   musicBtn.addEventListener('click', function(){
-    if (reloj){ stopMusic(); } else { tryPlayMusic(); }
+    if (bgm.paused){ tryPlayMusic(); } else { bgm.pause(); musicBtn.classList.remove('playing'); }
   });
 
   scenes.forEach(function(scene){
